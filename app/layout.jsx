@@ -32,6 +32,11 @@ export const metadata = {
     width: "device-width",
     initialScale: 1,
   },
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({ children }) {
