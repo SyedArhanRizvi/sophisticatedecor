@@ -164,12 +164,20 @@ function Form() {
                     </div>
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Phone</p>
-                      <a
-                        href="tel:+919876543210"
-                        className="text-darkBlue font-semibold hover:text-darkGreen transition-colors"
-                      >
-                        +91 98765 43210
-                      </a>
+                      <div className="flex flex-col gap-1">
+                        <a
+                          href="tel:+919027418414"
+                          className="text-darkBlue font-semibold hover:text-darkGreen transition-colors"
+                        >
+                          +91 90274 18414
+                        </a>
+                        <a
+                          href="tel:+918791551332"
+                          className="text-darkBlue font-semibold hover:text-darkGreen transition-colors"
+                        >
+                          +91 87915 51332
+                        </a>
+                      </div>
                     </div>
                   </div>
 

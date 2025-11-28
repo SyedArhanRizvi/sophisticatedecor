@@ -4,14 +4,14 @@ import { FaWhatsapp, FaPhone } from "react-icons/fa";
 
 const FloatingButtons = () => {
   const handleWhatsApp = () => {
-    const phoneNumber = "919876543210"; // Replace with your WhatsApp number
+    const phoneNumber = "919027418414"; // WhatsApp number
     const message = "Hello, I'm interested in your services!";
     const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
   };
 
   const handleCall = () => {
-    window.location.href = "tel:+919876543210"; // Replace with your phone number
+    window.location.href = "tel:+919027418414"; // Primary phone number
   };
 
   return (
