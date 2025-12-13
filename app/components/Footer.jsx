@@ -66,7 +66,7 @@ const Footer = () => {
                 </svg>
               </a>
               <a
-                href="tel:+919027418414"
+                href="tel:+918791551332"
                 className="text-gray-400 hover:text-darkGreen transition-colors duration-200"
                 aria-label="Call"
               >

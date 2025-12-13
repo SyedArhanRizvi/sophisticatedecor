@@ -1,40 +1,114 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { IoClose } from "react-icons/io5";
 import { usePopup } from "../context/PopupContext";
 
+const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyqRBhfFO0y2FZ_H83QHixRRNgyuYQd4EJjTfBozIeUWONvN4z6Q1zpRPyV-gWzcVes/exec";
+
 const PopupForm = () => {
-  const { isOpen, openPopup, closePopup } = usePopup();
+  const { isOpen, openPopup, closePopup, hasSubmitted, markAsSubmitted } = usePopup();
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     message: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [showResponse, setShowResponse] = useState(false);
+  const [responseMessage, setResponseMessage] = useState("");
+  const [responseType, setResponseType] = useState("success"); // 'success' or 'error'
+  const popupTimerRef = useRef(null);
+  const hasShownOnceRef = useRef(false);
 
   useEffect(() => {
-    // Open popup after 5 seconds on initial load - only once
-    const hasAutoOpened = localStorage.getItem("popupAutoOpened");
-    
-    if (!hasAutoOpened) {
-      const timer = setTimeout(() => {
-        if (!isOpen) {
+    // Don't show popup if user has already submitted
+    if (hasSubmitted) return;
+
+    // Show popup after 5 seconds on initial load (only once)
+    if (!hasShownOnceRef.current) {
+      const initialTimer = setTimeout(() => {
+        if (!hasSubmitted) {
           openPopup();
-          localStorage.setItem("popupAutoOpened", "true");
+          hasShownOnceRef.current = true;
         }
       }, 5000);
 
-      return () => clearTimeout(timer);
+      return () => clearTimeout(initialTimer);
     }
-  }, [isOpen, openPopup]);
+  }, [hasSubmitted, openPopup]);
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    // Clear any existing timer
+    if (popupTimerRef.current) {
+      clearTimeout(popupTimerRef.current);
+      popupTimerRef.current = null;
+    }
+
+    // If popup is closed (after being shown at least once) and form hasn't been submitted, show again after 10 seconds
+    if (!isOpen && hasShownOnceRef.current && !hasSubmitted) {
+      popupTimerRef.current = setTimeout(() => {
+        if (!hasSubmitted) {
+          openPopup();
+        }
+      }, 10000);
+    }
+
+    return () => {
+      if (popupTimerRef.current) {
+        clearTimeout(popupTimerRef.current);
+        popupTimerRef.current = null;
+      }
+    };
+  }, [isOpen, hasSubmitted, openPopup]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle form submission here
-    console.log("Form submitted:", formData);
-    alert("Thank you! We'll call you soon.");
-    setFormData({ name: "", phone: "", message: "" });
-    closePopup();
+    setIsLoading(true);
+    setShowResponse(false);
+
+    const now = new Date();
+    const payload = {
+      name: formData.name,
+      phone: formData.phone,
+      message: formData.message || "No message",
+      date: now.toLocaleDateString("en-GB"), // dd/mm/yyyy
+      time: now.toLocaleTimeString(), // hh:mm:ss
+    };
+
+    try {
+      const res = await fetch(GOOGLE_SHEETS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      setIsLoading(false);
+
+      if (data.success || res.ok) {
+        setResponseMessage("Enquiry saved ✅");
+        setResponseType("success");
+        setShowResponse(true);
+        setFormData({ name: "", phone: "", message: "" });
+        markAsSubmitted();
+        
+        // Close popup after 2 seconds
+        setTimeout(() => {
+          setShowResponse(false);
+          closePopup();
+        }, 2000);
+      } else {
+        setResponseMessage("Error saving enquiry ❌");
+        setResponseType("error");
+        setShowResponse(true);
+      }
+    } catch (err) {
+      setIsLoading(false);
+      setResponseMessage("Server error ❌");
+      setResponseType("error");
+      setShowResponse(true);
+    }
   };
 
   const handleChange = (e) => {
@@ -67,6 +141,17 @@ const PopupForm = () => {
           </p>
         </div>
 
+        {/* Response Popup */}
+        {showResponse && (
+          <div className={`mb-4 p-4 rounded-lg ${
+            responseType === "success" 
+              ? "bg-green-50 border-2 border-green-500 text-green-800" 
+              : "bg-red-50 border-2 border-red-500 text-red-800"
+          }`}>
+            <p className="font-semibold text-center">{responseMessage}</p>
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Name Field */}
@@ -81,8 +166,9 @@ const PopupForm = () => {
               value={formData.name}
               onChange={handleChange}
               required
+              disabled={isLoading}
               placeholder="Enter your name"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-darkGreen focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-darkGreen focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -98,8 +184,9 @@ const PopupForm = () => {
               value={formData.phone}
               onChange={handleChange}
               required
+              disabled={isLoading}
               placeholder="Enter your phone number"
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-darkGreen focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-darkGreen focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -114,17 +201,29 @@ const PopupForm = () => {
               value={formData.message}
               onChange={handleChange}
               rows={3}
+              disabled={isLoading}
               placeholder="Tell us about your requirement..."
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-darkGreen focus:border-transparent transition-all resize-none"
+              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-darkGreen focus:border-transparent transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-darkGreen to-darkGreen-dark text-white px-6 py-4 rounded-lg font-semibold text-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+            disabled={isLoading}
+            className="w-full bg-gradient-to-r from-darkGreen to-darkGreen-dark text-white px-6 py-4 rounded-lg font-semibold text-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
           >
-            Get a Call Back
+            {isLoading ? (
+              <>
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Submitting...</span>
+              </>
+            ) : (
+              "Get a Call Back"
+            )}
           </button>
         </form>
       </div>
@@ -133,4 +232,3 @@ const PopupForm = () => {
 };
 
 export default PopupForm;
-

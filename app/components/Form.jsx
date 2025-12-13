@@ -73,13 +73,59 @@ function Form() {
     return () => ctx.revert();
   }, []);
 
-  const handleSubmit = (e) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [showResponse, setShowResponse] = useState(false);
+  const [responseMessage, setResponseMessage] = useState("");
+  const [responseType, setResponseType] = useState("success"); // 'success' or 'error'
+
+  const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyqRBhfFO0y2FZ_H83QHixRRNgyuYQd4EJjTfBozIeUWONvN4z6Q1zpRPyV-gWzcVes/exec";
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle form submission here
-    console.log("Form submitted:", formData);
-    // You can add API call here to send the lead data
-    alert("Thank you for your message! We'll get back to you soon.");
-    setFormData({ name: "", phone: "", message: "" });
+    setIsLoading(true);
+    setShowResponse(false);
+
+    const now = new Date();
+    const payload = {
+      name: formData.name,
+      phone: formData.phone,
+      message: formData.message || "No message",
+      date: now.toLocaleDateString("en-GB"), // dd/mm/yyyy
+      time: now.toLocaleTimeString(), // hh:mm:ss
+    };
+
+    try {
+      const res = await fetch(GOOGLE_SHEETS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      setIsLoading(false);
+
+      if (data.success || res.ok) {
+        setResponseMessage("Enquiry saved ✅");
+        setResponseType("success");
+        setShowResponse(true);
+        setFormData({ name: "", phone: "", message: "" });
+        
+        // Hide response after 3 seconds
+        setTimeout(() => {
+          setShowResponse(false);
+        }, 3000);
+      } else {
+        setResponseMessage("Error saving enquiry ❌");
+        setResponseType("error");
+        setShowResponse(true);
+      }
+    } catch (err) {
+      setIsLoading(false);
+      setResponseMessage("Server error ❌");
+      setResponseType("error");
+      setShowResponse(true);
+    }
   };
 
   const handleChange = (e) => {
@@ -166,16 +212,16 @@ function Form() {
                       <p className="text-sm text-gray-600 mb-1">Phone</p>
                       <div className="flex flex-col gap-1">
                         <a
-                          href="tel:+919027418414"
-                          className="text-darkBlue font-semibold hover:text-darkGreen transition-colors"
-                        >
-                          +91 90274 18414
-                        </a>
-                        <a
                           href="tel:+918791551332"
                           className="text-darkBlue font-semibold hover:text-darkGreen transition-colors"
                         >
                           +91 87915 51332
+                        </a>
+                        <a
+                          href="tel:+919027418414"
+                          className="text-darkBlue font-semibold hover:text-darkGreen transition-colors"
+                        >
+                          +91 90274 18414
                         </a>
                       </div>
                     </div>
@@ -261,6 +307,17 @@ function Form() {
               ref={rightRef}
               className="bg-darkGreen p-8 lg:p-12 flex flex-col justify-center min-h-[600px]"
             >
+              {/* Response Popup */}
+              {showResponse && (
+                <div className={`mb-6 p-4 rounded-lg ${
+                  responseType === "success" 
+                    ? "bg-green-50 border-2 border-green-500 text-green-800" 
+                    : "bg-red-50 border-2 border-red-500 text-red-800"
+                }`}>
+                  <p className="font-semibold text-center">{responseMessage}</p>
+                </div>
+              )}
+
               <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
                 {/* Name Field */}
                 <div>
@@ -293,8 +350,9 @@ function Form() {
                       value={formData.name}
                       onChange={handleChange}
                       required
+                      disabled={isLoading}
                       placeholder="Enter your full name"
-                      className="w-full pl-12 pr-4 py-4 bg-darkGreen border-2 border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white transition-colors duration-200"
+                      className="w-full pl-12 pr-4 py-4 bg-darkGreen border-2 border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -330,8 +388,9 @@ function Form() {
                       value={formData.phone}
                       onChange={handleChange}
                       required
+                      disabled={isLoading}
                       placeholder="Enter your phone number"
-                      className="w-full pl-12 pr-4 py-4 bg-darkGreen border-2 border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white transition-colors duration-200"
+                      className="w-full pl-12 pr-4 py-4 bg-darkGreen border-2 border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -350,31 +409,45 @@ function Form() {
                     value={formData.message}
                     onChange={handleChange}
                     required
+                    disabled={isLoading}
                     rows={5}
                     placeholder="Tell us about your project or inquiry..."
-                    className="w-full px-4 py-4 bg-darkGreen border-2 border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white transition-colors duration-200 resize-none"
+                    className="w-full px-4 py-4 bg-darkGreen border-2 border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white transition-colors duration-200 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
 
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className="w-full flex items-center justify-center gap-3 bg-darkGreen border-2 border-white text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-darkGreen-dark transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  disabled={isLoading}
+                  className="w-full flex items-center justify-center gap-3 bg-darkGreen border-2 border-white text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-darkGreen-dark transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  <span>SEND MESSAGE</span>
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>SEND MESSAGE</span>
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </>
+                  )}
                 </button>
               </form>
             </div>

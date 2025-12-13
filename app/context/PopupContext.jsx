@@ -6,12 +6,14 @@ const PopupContext = createContext();
 
 export const PopupProvider = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const openPopup = () => setIsOpen(true);
   const closePopup = () => setIsOpen(false);
+  const markAsSubmitted = () => setHasSubmitted(true);
 
   return (
-    <PopupContext.Provider value={{ isOpen, openPopup, closePopup }}>
+    <PopupContext.Provider value={{ isOpen, openPopup, closePopup, hasSubmitted, markAsSubmitted }}>
       {children}
     </PopupContext.Provider>
   );
