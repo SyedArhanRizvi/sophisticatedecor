@@ -77,39 +77,137 @@ function Form() {
   const [showResponse, setShowResponse] = useState(false);
   const [responseMessage, setResponseMessage] = useState("");
   const [responseType, setResponseType] = useState("success"); // 'success' or 'error'
+  const [errors, setErrors] = useState({});
 
-  const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyqRBhfFO0y2FZ_H83QHixRRNgyuYQd4EJjTfBozIeUWONvN4z6Q1zpRPyV-gWzcVes/exec";
+  const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbzLS7hIONLeu0FRHPix2yYu-yrhX84sGG_U1wvoNJ2qcojW5VoeHQPDaTmCZ_AOslfy/exec";
+
+  // Indian phone number validation
+  const validateIndianPhone = (phoneNumber) => {
+    // Remove all spaces, dashes, and special characters except + and digits
+    let cleaned = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    
+    // Remove +91 or 91 prefix if present
+    if (cleaned.startsWith('+91')) {
+      cleaned = cleaned.substring(3);
+    } else if (cleaned.startsWith('91') && cleaned.length === 12) {
+      cleaned = cleaned.substring(2);
+    } else if (cleaned.startsWith('0') && cleaned.length === 11) {
+      cleaned = cleaned.substring(1);
+    }
+    
+    // Check if it's exactly 10 digits
+    if (cleaned.length !== 10) {
+      return { valid: false, message: "Phone number must be 10 digits" };
+    }
+    
+    // Check if all are digits
+    if (!/^\d+$/.test(cleaned)) {
+      return { valid: false, message: "Phone number must contain only digits" };
+    }
+    
+    // Check if it starts with 6, 7, 8, or 9 (valid Indian mobile number prefixes)
+    if (!/^[6-9]/.test(cleaned)) {
+      return { valid: false, message: "Phone number must start with 6, 7, 8, or 9" };
+    }
+    
+    return { valid: true, cleaned };
+  };
+
+  // Name validation
+  const validateName = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return { valid: false, message: "Name is required" };
+    }
+    if (trimmed.length < 2) {
+      return { valid: false, message: "Name must be at least 2 characters" };
+    }
+    if (trimmed.length > 50) {
+      return { valid: false, message: "Name must be less than 50 characters" };
+    }
+    // Check if name contains only letters, spaces, and common name characters
+    if (!/^[a-zA-Z\s.'-]+$/.test(trimmed)) {
+      return { valid: false, message: "Name can only contain letters and spaces" };
+    }
+    return { valid: true, cleaned: trimmed };
+  };
+
+  async function sendToGoogleSheet(formData) {
+    const scriptURL = GOOGLE_SHEETS_URL;
+
+    try {
+      const response = await fetch(scriptURL, {
+        method: "POST",
+        body: JSON.stringify(formData)
+      });
+
+      const result = await response.json();
+      console.log('Success:', result);
+      return result;
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
     setShowResponse(false);
+    setErrors({});
+
+    // Validate name
+    const nameValidation = validateName(formData.name);
+    if (!nameValidation.valid) {
+      setErrors({ name: nameValidation.message });
+      setResponseMessage(nameValidation.message);
+      setResponseType("error");
+      setShowResponse(true);
+      setTimeout(() => setShowResponse(false), 3000);
+      return;
+    }
+
+    // Validate phone
+    if (!formData.phone.trim()) {
+      setErrors({ phone: "Phone number is required" });
+      setResponseMessage("Phone number is required");
+      setResponseType("error");
+      setShowResponse(true);
+      setTimeout(() => setShowResponse(false), 3000);
+      return;
+    }
+
+    const phoneValidation = validateIndianPhone(formData.phone);
+    if (!phoneValidation.valid) {
+      setErrors({ phone: phoneValidation.message });
+      setResponseMessage(phoneValidation.message);
+      setResponseType("error");
+      setShowResponse(true);
+      setTimeout(() => setShowResponse(false), 3000);
+      return;
+    }
+
+    setIsLoading(true);
 
     const now = new Date();
     const payload = {
-      name: formData.name,
-      phone: formData.phone,
-      message: formData.message || "No message",
+      name: nameValidation.cleaned,
+      phone: phoneValidation.cleaned,
+      message: formData.message.trim() || "No message",
       date: now.toLocaleDateString("en-GB"), // dd/mm/yyyy
       time: now.toLocaleTimeString(), // hh:mm:ss
     };
 
     try {
-      const res = await fetch(GOOGLE_SHEETS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
+      const result = await sendToGoogleSheet(payload);
 
       setIsLoading(false);
 
-      if (data.success || res.ok) {
+      if (result.success) {
         setResponseMessage("Enquiry saved ✅");
         setResponseType("success");
         setShowResponse(true);
         setFormData({ name: "", phone: "", message: "" });
+        setErrors({});
         
         // Hide response after 3 seconds
         setTimeout(() => {
@@ -133,6 +231,13 @@ function Form() {
       ...formData,
       [e.target.name]: e.target.value,
     });
+    // Clear error for this field when user starts typing
+    if (errors[e.target.name]) {
+      setErrors({
+        ...errors,
+        [e.target.name]: "",
+      });
+    }
   };
 
   return (
@@ -325,7 +430,7 @@ function Form() {
                     htmlFor="name"
                     className="block text-white text-sm font-semibold mb-2 uppercase tracking-wide"
                   >
-                    Full Name
+                    Full Name <span className="text-red-300">*</span>
                   </label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2">
@@ -352,9 +457,14 @@ function Form() {
                       required
                       disabled={isLoading}
                       placeholder="Enter your full name"
-                      className="w-full pl-12 pr-4 py-4 bg-darkGreen border-2 border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className={`w-full pl-12 pr-4 py-4 bg-darkGreen border-2 rounded-lg text-white placeholder-white/60 focus:outline-none transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        errors.name ? "border-red-400 focus:border-red-400" : "border-white/30 focus:border-white"
+                      }`}
                     />
                   </div>
+                  {errors.name && (
+                    <p className="mt-1 text-sm text-red-300">{errors.name}</p>
+                  )}
                 </div>
 
                 {/* Phone Field */}
@@ -363,7 +473,7 @@ function Form() {
                     htmlFor="phone"
                     className="block text-white text-sm font-semibold mb-2 uppercase tracking-wide"
                   >
-                    Phone Number
+                    Phone Number <span className="text-red-300">*</span>
                   </label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2">
@@ -389,10 +499,16 @@ function Form() {
                       onChange={handleChange}
                       required
                       disabled={isLoading}
-                      placeholder="Enter your phone number"
-                      className="w-full pl-12 pr-4 py-4 bg-darkGreen border-2 border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      placeholder="+91 98765 43210 or 9876543210"
+                      className={`w-full pl-12 pr-4 py-4 bg-darkGreen border-2 rounded-lg text-white placeholder-white/60 focus:outline-none transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        errors.phone ? "border-red-400 focus:border-red-400" : "border-white/30 focus:border-white"
+                      }`}
                     />
                   </div>
+                  {errors.phone && (
+                    <p className="mt-1 text-sm text-red-300">{errors.phone}</p>
+                  )}
+                  <p className="mt-1 text-xs text-white/70">Enter 10-digit Indian mobile number (starts with 6-9)</p>
                 </div>
 
                 {/* Message Field */}
