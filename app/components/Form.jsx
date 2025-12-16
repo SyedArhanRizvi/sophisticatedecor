@@ -499,7 +499,7 @@ function Form() {
                       onChange={handleChange}
                       required
                       disabled={isLoading}
-                      placeholder="+91 98765 43210 or 9876543210"
+                      placeholder="+91 87915 51332 or 8791551332"
                       className={`w-full pl-12 pr-4 py-4 bg-darkGreen border-2 rounded-lg text-white placeholder-white/60 focus:outline-none transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                         errors.phone ? "border-red-400 focus:border-red-400" : "border-white/30 focus:border-white"
                       }`}

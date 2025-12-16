@@ -295,7 +295,7 @@ const Hero = () => {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 98765 43210 or 9876543210"
+                placeholder="+91 87915 51332 or 8791551332"
                 required
                 disabled={isLoading}
                 className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-darkGreen focus:border-transparent bg-white disabled:opacity-50 disabled:cursor-not-allowed placeholder:text-gray-400"

@@ -360,7 +360,7 @@ const Footer = () => {
                   type="tel"
                   value={phone}
                   onChange={handlePhoneChange}
-                  placeholder="+91 98765 43210 or 9876543210"
+                  placeholder="+91 87915 51332 or 8791551332"
                   required
                   disabled={isLoading}
                   className={`w-full px-4 py-3 rounded-lg bg-white text-gray-900 placeholder-gray-500 border focus:outline-none focus:ring-2 focus:ring-darkGreen focus:border-transparent transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
