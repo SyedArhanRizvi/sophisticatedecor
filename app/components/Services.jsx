@@ -115,7 +115,7 @@ const Services = () => {
   }, []);
 
   return (
-    <section ref={sectionRef} id="services" className="py-20 bg-mint">
+    <section ref={sectionRef} id="services" className="py-20 bg-mint overflow-x-hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div ref={titleRef} className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold text-darkBlue mb-4">

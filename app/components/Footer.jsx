@@ -3,8 +3,15 @@
 import { useState } from "react";
 import Logo from "./Logo";
 
+const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbzLS7hIONLeu0FRHPix2yYu-yrhX84sGG_U1wvoNJ2qcojW5VoeHQPDaTmCZ_AOslfy/exec";
+
 const Footer = () => {
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [showResponse, setShowResponse] = useState(false);
+  const [responseMessage, setResponseMessage] = useState("");
+  const [responseType, setResponseType] = useState("success"); // 'success' or 'error'
+  const [phoneError, setPhoneError] = useState("");
   const navLinks = [
     { name: "Home", href: "#home" },
     { name: "Services", href: "#services" },
@@ -22,12 +29,133 @@ const Footer = () => {
     }
   };
 
-  const handleNewsletterSubmit = (e) => {
+  // Indian phone number validation
+  const validateIndianPhone = (phoneNumber) => {
+    // Remove all spaces, dashes, and special characters except + and digits
+    let cleaned = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    
+    // Remove +91 or 91 prefix if present
+    if (cleaned.startsWith('+91')) {
+      cleaned = cleaned.substring(3);
+    } else if (cleaned.startsWith('91') && cleaned.length === 12) {
+      cleaned = cleaned.substring(2);
+    } else if (cleaned.startsWith('0') && cleaned.length === 11) {
+      cleaned = cleaned.substring(1);
+    }
+    
+    // Check if it's exactly 10 digits
+    if (cleaned.length !== 10) {
+      return { valid: false, message: "Phone number must be 10 digits" };
+    }
+    
+    // Check if all are digits
+    if (!/^\d+$/.test(cleaned)) {
+      return { valid: false, message: "Phone number must contain only digits" };
+    }
+    
+    // Check if it starts with 6, 7, 8, or 9 (valid Indian mobile number prefixes)
+    if (!/^[6-9]/.test(cleaned)) {
+      return { valid: false, message: "Phone number must start with 6, 7, 8, or 9" };
+    }
+    
+    return { valid: true, cleaned };
+  };
+
+  async function sendToGoogleSheet(formData) {
+    const scriptURL = GOOGLE_SHEETS_URL;
+
+    try {
+      const response = await fetch(scriptURL, {
+        method: "POST",
+        body: JSON.stringify(formData)
+      });
+
+      const result = await response.json();
+      console.log('Success:', result);
+      return result;
+    } catch (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+  }
+
+  const handleCallBackSubmit = async (e) => {
     e.preventDefault();
-    // Handle newsletter subscription
-    console.log("Newsletter subscription:", email);
-    alert("Thank you for subscribing!");
-    setEmail("");
+    setShowResponse(false);
+    setPhoneError("");
+
+    if (!phone.trim()) {
+      setPhoneError("Phone number is required");
+      setResponseMessage("Phone number is required");
+      setResponseType("error");
+      setShowResponse(true);
+      setTimeout(() => setShowResponse(false), 3000);
+      return;
+    }
+
+    // Validate Indian phone number
+    const phoneValidation = validateIndianPhone(phone);
+    if (!phoneValidation.valid) {
+      setPhoneError(phoneValidation.message);
+      setResponseMessage(phoneValidation.message);
+      setResponseType("error");
+      setShowResponse(true);
+      setTimeout(() => setShowResponse(false), 3000);
+      return;
+    }
+
+    setIsLoading(true);
+
+    const now = new Date();
+    const payload = {
+      name: "",
+      phone: phoneValidation.cleaned,
+      message: "",
+      date: now.toLocaleDateString("en-GB"), // dd/mm/yyyy
+      time: now.toLocaleTimeString(), // hh:mm:ss
+      type: "callback_request",
+    };
+
+    try {
+      const result = await sendToGoogleSheet(payload);
+
+      setIsLoading(false);
+
+      if (result.success) {
+        setResponseMessage("Request submitted! We'll call you soon ✅");
+        setResponseType("success");
+        setShowResponse(true);
+        setPhone("");
+        
+        // Hide response after 3 seconds
+        setTimeout(() => {
+          setShowResponse(false);
+        }, 3000);
+      } else {
+        setResponseMessage("Error submitting request. Please try again.");
+        setResponseType("error");
+        setShowResponse(true);
+        setTimeout(() => {
+          setShowResponse(false);
+        }, 3000);
+      }
+    } catch (err) {
+      setIsLoading(false);
+      setResponseMessage("Server error. Please try again.");
+      setResponseType("error");
+      setShowResponse(true);
+      setTimeout(() => {
+        setShowResponse(false);
+      }, 3000);
+    }
+  };
+
+  const handlePhoneChange = (e) => {
+    setPhone(e.target.value);
+    // Clear error when user starts typing
+    if (phoneError) {
+      setPhoneError("");
+    }
   };
 
   return (
@@ -191,32 +319,75 @@ const Footer = () => {
                   href="mailto:info@sophisticatedecor.com"
                   className="text-gray-400 hover:text-white transition-colors duration-200 text-sm"
                 >
-                  info@sophisticatedecor.com
+                  sophisticatedecor.site@gmail.com
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* Newsletter Signup */}
+          {/* Get a Call Back */}
           <div>
-            <h4 className="text-white font-semibold mb-4 text-base">Sign up for our newsletter</h4>
+            <h4 className="text-white font-semibold mb-4 text-base">Get a Call Back</h4>
             <p className="text-gray-400 mb-6 text-sm leading-relaxed">
-              Get updates on our latest projects, special offers, and design inspiration delivered to your inbox.
+              Leave your phone number and we'll call you back to discuss your requirements.
             </p>
-            <form onSubmit={handleNewsletterSubmit} className="flex flex-col gap-3">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                required
-                className="px-4 py-3 rounded-lg bg-white text-gray-900 placeholder-gray-500 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-darkGreen focus:border-transparent transition-all duration-200"
-              />
+            
+            {/* Response Popup */}
+            {showResponse && (
+              <div className={`mb-4 p-3 rounded-lg animate-in fade-in slide-in-from-top-2 duration-300 ${
+                responseType === "success" 
+                  ? "bg-green-50 border-2 border-green-500 text-green-800" 
+                  : "bg-red-50 border-2 border-red-500 text-red-800"
+              }`}>
+                <div className="flex items-center gap-2">
+                  {responseType === "success" ? (
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                  <p className="font-semibold text-sm">{responseMessage}</p>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleCallBackSubmit} className="flex flex-col gap-3">
+              <div>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  placeholder="+91 98765 43210 or 9876543210"
+                  required
+                  disabled={isLoading}
+                  className={`w-full px-4 py-3 rounded-lg bg-white text-gray-900 placeholder-gray-500 border focus:outline-none focus:ring-2 focus:ring-darkGreen focus:border-transparent transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    phoneError ? "border-red-500 focus:ring-red-500" : "border-gray-200"
+                  }`}
+                />
+                {phoneError && (
+                  <p className="mt-1 text-sm text-red-400">{phoneError}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-400">Enter 10-digit Indian mobile number (starts with 6-9)</p>
+              </div>
               <button
                 type="submit"
-                className="bg-darkGreen border-2 border-white text-white px-6 py-3 rounded-lg transition-all duration-200 font-semibold hover:bg-darkGreen-dark hover:scale-105 transform"
+                disabled={isLoading}
+                className="bg-darkGreen border-2 border-white text-white px-6 py-3 rounded-lg transition-all duration-200 font-semibold hover:bg-darkGreen-dark hover:scale-105 transform disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
               >
-                Subscribe
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  "Get a Call Back"
+                )}
               </button>
             </form>
           </div>
